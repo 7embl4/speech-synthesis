@@ -1,12 +1,11 @@
+import torch
+from torch import nn
+
 from src.metrics.tracker import MetricTracker
 from src.trainer.base_trainer import BaseTrainer
 
 
 class Trainer(BaseTrainer):
-    """
-    Trainer class. Defines the logic of batch logging and processing.
-    """
-
     def process_batch(self, batch, metrics: MetricTracker):
         """
         Run batch through the model, compute metrics, compute loss,
@@ -32,20 +31,42 @@ class Trainer(BaseTrainer):
         metric_funcs = self.metrics["inference"]
         if self.is_train:
             metric_funcs = self.metrics["train"]
-            self.optimizer.zero_grad()
+            self.g_optimizer.zero_grad()
+            self.d_optimizer.zero_grad()
 
-        outputs = self.model(**batch)
+        # discriminator step
+        self._unfreeze(self.model.discriminator)
+        self._freeze(self.model.generator)
+
+        outputs = self.model.discriminate(**batch)
         batch.update(outputs)
 
-        all_losses = self.criterion(**batch)
-        batch.update(all_losses)
+        d_loss = self.d_criterion(**batch)
+        batch.update(d_loss)
 
         if self.is_train:
-            batch["loss"].backward()  # sum of all losses is always called loss
+            batch["d_loss"].backward()
             self._clip_grad_norm()
-            self.optimizer.step()
-            if self.lr_scheduler is not None:
-                self.lr_scheduler.step()
+            self.d_optimizer.step()
+            if self.d_lr_scheduler is not None:
+                self.d_lr_scheduler.step()
+
+        # generator step
+        self._unfreeze(self.model.generator)
+        self._freeze(self.model.discriminator)
+
+        outputs = self.model.generate(**batch)
+        batch.update(outputs)
+
+        g_loss = self.g_criterion(**batch)
+        batch.update(g_loss)
+
+        if self.is_train:
+            batch["g_loss"].backward()
+            self._clip_grad_norm()
+            self.g_optimizer.step()
+            if self.g_lr_scheduler is not None:
+                self.g_lr_scheduler.step()
 
         # update metrics for each loss (in case of multiple losses)
         for loss_name in self.config.writer.loss_names:
@@ -54,6 +75,14 @@ class Trainer(BaseTrainer):
         for met in metric_funcs:
             metrics.update(met.name, met(**batch))
         return batch
+
+    def _freeze(self, model: nn.Module):
+        for param in model.parameters():
+            param.requires_grad_(False)
+
+    def _unfreeze(self, model: nn.Module):
+        for param in model.parameters():
+            param.requires_grad_(True)
 
     def _log_batch(self, batch_idx, batch, mode="train"):
         """

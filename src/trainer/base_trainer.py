@@ -18,10 +18,13 @@ class BaseTrainer:
     def __init__(
         self,
         model,
-        criterion,
+        g_criterion,
+        g_optimizer,
+        g_lr_scheduler,
+        d_criterion,
+        d_optimizer,
+        d_lr_scheduler,
         metrics,
-        optimizer,
-        lr_scheduler,
         config,
         device,
         dataloaders,
@@ -67,9 +70,13 @@ class BaseTrainer:
         self.log_step = config.trainer.get("log_step", 50)
 
         self.model = model
-        self.criterion = criterion
-        self.optimizer = optimizer
-        self.lr_scheduler = lr_scheduler
+        self.g_criterion = g_criterion
+        self.g_optimizer = g_optimizer
+        self.g_lr_scheduler = g_lr_scheduler
+        self.d_criterion = d_criterion
+        self.d_optimizer = d_optimizer
+        self.d_lr_scheduler = d_lr_scheduler
+
         self.batch_transforms = batch_transforms
 
         # define dataloaders
@@ -172,7 +179,7 @@ class BaseTrainer:
 
             # print logged information to the screen
             for key, value in logs.items():
-                self.logger.info(f"    {key:15s}: {value}")
+                self.logger.info(f"    {key:15s}: {value}")  # noqa
 
             # evaluate model performance according to configured metric,
             # save best checkpoint as model_best
@@ -467,8 +474,10 @@ class BaseTrainer:
             "arch": arch,
             "epoch": epoch,
             "state_dict": self.model.state_dict(),
-            "optimizer": self.optimizer.state_dict(),
-            "lr_scheduler": self.lr_scheduler.state_dict(),
+            "g_optimizer": self.g_optimizer.state_dict(),
+            "d_optimizer": self.d_optimizer.state_dict(),
+            "g_lr_scheduler": self.g_lr_scheduler.state_dict(),
+            "d_lr_scheduler": self.d_lr_scheduler.state_dict(),
             "monitor_best": self.mnt_best,
             "config": self.config,
         }
@@ -513,8 +522,10 @@ class BaseTrainer:
 
         # load optimizer state from checkpoint only when optimizer type is not changed.
         if (
-            checkpoint["config"]["optimizer"] != self.config["optimizer"]
-            or checkpoint["config"]["lr_scheduler"] != self.config["lr_scheduler"]
+            checkpoint["config"]["g_optimizer"] != self.config["g_optimizer"]
+            or checkpoint["config"]["g_lr_scheduler"] != self.config["g_lr_scheduler"]
+            or checkpoint["config"]["d_optimizer"] != self.config["d_optimizer"]
+            or checkpoint["config"]["d_lr_scheduler"] != self.config["d_lr_scheduler"]
         ):
             self.logger.warning(
                 "Warning: Optimizer or lr_scheduler given in the config file is different "
@@ -522,8 +533,10 @@ class BaseTrainer:
                 "are not resumed."
             )
         else:
-            self.optimizer.load_state_dict(checkpoint["optimizer"])
-            self.lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+            self.g_optimizer.load_state_dict(checkpoint["g_optimizer"])
+            self.d_optimizer.load_state_dict(checkpoint["d_optimizer"])
+            self.g_lr_scheduler.load_state_dict(checkpoint["g_lr_scheduler"])
+            self.d_lr_scheduler.load_state_dict(checkpoint["d_lr_scheduler"])
 
         self.logger.info(
             f"Checkpoint loaded. Resume training from epoch {self.start_epoch}"
