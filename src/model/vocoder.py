@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from torch.nn.utils.parametrizations import spectral_norm, weight_norm
-from torchinfo import summary
+from torch.nn.utils.rnn import pad_sequence
 
 
 class ResBlock(nn.Module):
@@ -135,7 +135,7 @@ class Generator(nn.Module):
         # gate to audio
         x = self.final_conv(x)
 
-        return x
+        return {"gen_audio": x}
 
 
 class PeriodDiscr(nn.Module):
@@ -163,31 +163,44 @@ class PeriodDiscr(nn.Module):
             )
             in_ch = out_ch
 
-        self.final_conv = nn.Sequential(
-            weight_norm(
-                nn.Conv2d(
-                    in_channels=in_ch,
-                    out_channels=1024,
-                    kernel_size=(5, 1),
-                    padding="same",
-                )
-            ),
-            nn.LeakyReLU(relu_slope),
-            weight_norm(
-                nn.Conv2d(
-                    in_channels=1024, out_channels=1, kernel_size=(3, 1), padding="same"
-                )
-            ),
+        self.final_gates = nn.ModuleList(
+            [
+                nn.Sequential(
+                    weight_norm(
+                        nn.Conv2d(
+                            in_channels=in_ch,
+                            out_channels=1024,
+                            kernel_size=(5, 1),
+                            padding="same",
+                        )
+                    ),
+                    nn.LeakyReLU(relu_slope),
+                ),
+                weight_norm(
+                    nn.Conv2d(
+                        in_channels=1024,
+                        out_channels=1,
+                        kernel_size=(3, 1),
+                        padding="same",
+                    )
+                ),
+            ]
         )
 
     def forward(self, x: torch.Tensor):
         x = self._pad_and_reshape(x)
 
+        fmap = []
         for layer in self.layers:
             x = layer(x)
+            fmap.append(x)
 
-        out = torch.flatten(self.final_conv(x), 1, -1)
-        return out
+        for gate in self.final_gates:
+            x = gate(x)
+            fmap.append(x)
+
+        x = torch.flatten(x, 1, -1)
+        return x, fmap
 
     def _pad_and_reshape(self, x: torch.Tensor):
         # [B, 1, T] -> [B, 1, ceil(T / p), p]
@@ -207,11 +220,17 @@ class MPD(nn.Module):
         for p in periods:
             self.discrs.append(PeriodDiscr(in_channels, p, num_layers, relu_slope))
 
-    def forward(self, x: torch.Tensor):
-        out = []
+    def forward(self, real_audio: torch.Tensor, gen_audio: torch.Tensor):
+        rs, gs, r_fmaps, g_fmaps = [], [], [], []
         for discr in self.discrs:
-            out.append(discr(x))
-        return out
+            r, r_fmap = discr(real_audio)
+            g, g_fmap = discr(gen_audio)
+            rs.append(r)
+            gs.append(g)
+            r_fmaps.append(r_fmap)
+            g_fmaps.append(g_fmap)
+
+        return rs, gs, r_fmaps, g_fmaps
 
 
 class SubDiscr(nn.Module):
@@ -224,76 +243,93 @@ class SubDiscr(nn.Module):
         strides=[2, 4, 4],
         pooling=1,
         is_first=False,
+        relu_slope=0.1,
     ):
         super().__init__()
-        """
-        norm_f(Conv1d(1, 128, 15, 1, padding=7)),
-        norm_f(Conv1d(128, 128, 41, 2, groups=4, padding=20)),
-
-        norm_f(Conv1d(128, 256, 41, 2, groups=16, padding=20)),
-        norm_f(Conv1d(256, 512, 41, 4, groups=16, padding=20)),
-        norm_f(Conv1d(512, 1024, 41, 4, groups=16, padding=20)),
-
-        norm_f(Conv1d(1024, 1024, 41, 1, groups=16, padding=20)),
-        norm_f(Conv1d(1024, 1024, 5, 1, padding=2)),
-        """
         self.pooling = pooling
         norm = spectral_norm if is_first else weight_norm
 
-        self.init_gate = nn.Sequential(
-            norm(nn.Conv1d(in_channels, hid_channels, 15, padding=7)),
-            norm(
-                nn.Conv1d(
-                    hid_channels,
-                    hid_channels,
-                    kernel_size,
-                    groups=4,
-                    padding=kernel_size // 2,
-                )
-            ),
+        self.init_gates = nn.ModuleList(
+            [
+                nn.Sequential(
+                    norm(nn.Conv1d(in_channels, hid_channels, 15, padding=7)),
+                    nn.LeakyReLU(relu_slope),
+                ),
+                nn.Sequential(
+                    norm(
+                        nn.Conv1d(
+                            hid_channels,
+                            hid_channels,
+                            kernel_size,
+                            groups=4,
+                            padding=kernel_size // 2,
+                        )
+                    ),
+                    nn.LeakyReLU(relu_slope),
+                ),
+            ]
         )
 
         self.layers = nn.ModuleList([])
         N = len(strides)
         for i in range(N):
             self.layers.append(
-                norm(
-                    nn.Conv1d(
-                        hid_channels,
-                        2 * hid_channels,
-                        kernel_size,
-                        stride=strides[i],
-                        groups=groups,
-                        padding=kernel_size // 2,
-                    )
+                nn.Sequential(
+                    norm(
+                        nn.Conv1d(
+                            hid_channels,
+                            2 * hid_channels,
+                            kernel_size,
+                            stride=strides[i],
+                            groups=groups,
+                            padding=kernel_size // 2,
+                        )
+                    ),
+                    nn.LeakyReLU(relu_slope),
                 )
             )
             hid_channels = hid_channels * 2
 
-        self.final_conv = nn.Sequential(
-            norm(
-                nn.Conv1d(
-                    hid_channels,
-                    hid_channels,
-                    kernel_size,
-                    groups=groups,
-                    padding=kernel_size // 2,
-                )
-            ),
-            norm(nn.Conv1d(hid_channels, hid_channels, 5, padding=2)),
-            norm(nn.Conv1d(hid_channels, 1, 3, padding=1)),
+        self.final_gates = nn.ModuleList(
+            [
+                nn.Sequential(
+                    norm(
+                        nn.Conv1d(
+                            hid_channels,
+                            hid_channels,
+                            kernel_size,
+                            groups=groups,
+                            padding=kernel_size // 2,
+                        )
+                    ),
+                    nn.LeakyReLU(relu_slope),
+                ),
+                nn.Sequential(
+                    norm(nn.Conv1d(hid_channels, hid_channels, 5, padding=2)),
+                    nn.LeakyReLU(relu_slope),
+                ),
+                norm(nn.Conv1d(hid_channels, 1, 3, padding=1)),
+            ]
         )
 
     def forward(self, x: torch.Tensor):
         x = F.avg_pool1d(x, kernel_size=self.pooling, padding=self.pooling // 2)
-        x = self.init_gate(x)
+
+        fmap = []
+        for gate in self.init_gates:
+            x = gate(x)
+            fmap.append(x)
 
         for layer in self.layers:
             x = layer(x)
+            fmap.append(x)
 
-        x = self.final_conv(x)
+        for gate in self.final_gates:
+            x = gate(x)
+            fmap.append(x)
+
         x = torch.flatten(x, 1, -1)
-        return x
+        return x, fmap
 
 
 class MSD(nn.Module):
@@ -305,6 +341,7 @@ class MSD(nn.Module):
         groups=16,
         strides=[2, 4, 4],
         pools=[1, 2, 4],
+        relu_slope=0.1,
     ):
         super().__init__()
         self.discrs = nn.ModuleList([])
@@ -319,11 +356,126 @@ class MSD(nn.Module):
                     strides,
                     pooling=pools[i],
                     is_first=(i == 0),
+                    relu_slope=relu_slope,
                 )
             )
 
-    def forward(self, x: torch.Tensor):
-        out = []
+    def forward(self, real_audio: torch.Tensor, gen_audio: torch.Tensor):
+        rs, gs, r_fmaps, g_fmaps = [], [], [], []
         for discr in self.discrs:
-            out.append(discr(x))
-        return out
+            r, r_fmap = discr(real_audio)
+            g, g_fmap = discr(gen_audio)
+            rs.append(r)
+            gs.append(g)
+            r_fmaps.append(r_fmap)
+            g_fmaps.append(g_fmap)
+
+        return rs, gs, r_fmaps, g_fmaps
+
+
+class Descriminator(nn.Module):
+    def __init__(
+        self,
+        # mpd
+        mpd_periods=[2, 3, 5, 7, 11],
+        mpd_num_layers=4,
+        # msd
+        msd_hid_channels=128,
+        msd_kernel_size=41,
+        msd_groups=16,
+        msd_strides=[2, 4, 4],
+        msd_pools=[1, 2, 4],
+        # common
+        audio_channels=1,
+        relu_slope=0.1,
+    ):
+        super().__init__()
+        self.mpd = MPD(audio_channels, mpd_periods, mpd_num_layers, relu_slope)
+        self.msd = MSD(
+            audio_channels,
+            msd_hid_channels,
+            msd_kernel_size,
+            msd_groups,
+            msd_strides,
+            msd_pools,
+            relu_slope,
+        )
+
+    def forward(self, real_audio: torch.Tensor, gen_audio: torch.Tensor):
+        real_audio, gen_audio = self._pad_to_equal(real_audio, gen_audio)
+
+        mpd_rs, mpd_gs, mpd_r_fmaps, mpd_g_fmaps = self.mpd(real_audio, gen_audio)
+        msd_rs, msd_gs, msd_r_fmaps, msd_g_fmaps = self.msd(real_audio, gen_audio)
+
+        return {
+            "mpd_rs": mpd_rs,
+            "mpd_gs": mpd_gs,
+            "mpd_r_fmaps": mpd_r_fmaps,
+            "mpd_g_fmaps": mpd_g_fmaps,
+            "msd_rs": msd_rs,
+            "msd_gs": msd_gs,
+            "msd_r_fmaps": msd_r_fmaps,
+            "msd_g_fmaps": msd_g_fmaps,
+        }
+
+    def _pad_to_equal(self, real_audio: torch.Tensor, gen_audio: torch.Tensor):
+        diff = abs(real_audio.shape[-1] - gen_audio.shape[-1])
+
+        if real_audio.shape[-1] < gen_audio.shape[-1]:
+            real_audio = F.pad(real_audio, (0, diff), mode="reflect")
+        else:
+            gen_audio = F.pad(gen_audio, (0, diff), mode="reflect")
+
+        return real_audio, gen_audio
+
+
+class HiFiGAN(nn.Module):
+    def __init__(
+        self,
+        # generator
+        mel_channels=80,
+        hid_channels=512,
+        gen_kernels=[16, 16, 4, 4],
+        mrf_kernels=[3, 7, 11],
+        mrf_dilations=[[[1, 1], [3, 1], [5, 1]]] * 3,
+        # descriminator
+        mpd_periods=[2, 3, 5, 7, 11],
+        mpd_num_layers=4,
+        msd_hid_channels=128,
+        msd_kernel_size=41,
+        msd_groups=16,
+        msd_strides=[2, 4, 4],
+        msd_pools=[1, 2, 4],
+        # common
+        audio_channels=1,
+        relu_slope=0.1,
+    ):
+        super().__init__()
+        self.generator = Generator(
+            mel_channels,
+            hid_channels,
+            gen_kernels,
+            mrf_kernels,
+            mrf_dilations,
+            relu_slope,
+        )
+        self.descriminator = Descriminator(
+            mpd_periods,
+            mpd_num_layers,
+            msd_hid_channels,
+            msd_kernel_size,
+            msd_groups,
+            msd_strides,
+            msd_pools,
+            audio_channels,
+            relu_slope,
+        )
+
+    def forward(self, spec, **batch):
+        return self.generator(spec)
+
+    def generate(self, spec, **batch):
+        return self.generator(spec)
+
+    def descriminate(self, audio, gen_audio, **batch):
+        return self.descriminator(audio, gen_audio)
