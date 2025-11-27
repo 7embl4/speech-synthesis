@@ -47,6 +47,7 @@ class LJSpeechDataset(BaseDataset):
                 "Provide link in .env file with name: 'LJSPEECH_DATASET_URL'"
             )
 
+        print("Downloading dataset...")
         filename = wget.download(download_url, out=str(self.data_dir.parent))
         print(f"Downloaded to {str(self.data_dir / filename)}")
 
@@ -63,11 +64,15 @@ class LJSpeechDataset(BaseDataset):
         wavs_path = self.data_dir / "wavs"
 
         index = []
-        for wav_path in tqdm(wavs_path.iterdir()):
+        for wav_path in tqdm(wavs_path.iterdir(), desc="Creating index"):
             id = wav_path.stem
-            transcript = texts_df.loc[texts_df["id"] == id]["norm_text"].item()
+            item = texts_df.loc[texts_df["id"] == id]
+            text = item["text"].item()
+            norm_text = item["norm_text"].item()
 
-            index.append({"filename": str(wav_path), "text": transcript})
+            index.append(
+                {"filename": str(wav_path), "text": text, "norm_text": norm_text}
+            )
 
         return index
 
@@ -84,6 +89,7 @@ class LJSpeechDataset(BaseDataset):
             "filename": metadata["filename"],
             "audio": audio,
             "text": metadata["text"],
+            "norm_text": metadata["norm_text"],
         }
 
         instance_data = self.preprocess_data(instance_data)

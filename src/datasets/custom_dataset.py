@@ -1,9 +1,10 @@
 import os
+import zipfile
 
 from tqdm import tqdm
 
 from src.datasets.base_dataset import BaseDataset
-from src.utils.io_utils import ROOT_PATH, read_json, write_json
+from src.utils.io_utils import ROOT_PATH, download_from_yadisk, read_json, write_json
 
 
 class CustomUtteranceDataset(BaseDataset):
@@ -24,21 +25,33 @@ class CustomUtteranceDataset(BaseDataset):
         return index
 
     def _load_dataset(self):
-        if self.data_dir.exists():
+        if self.data_dir.exists() and any(self.data_dir.iterdir()):
             return
 
-        os.makedirs(str(self.data_dir))
-        # loading using yadisk tool
+        os.makedirs(str(self.data_dir), exist_ok=True)
+        with (ROOT_PATH / ".env").open() as env_file:
+            env_vars = {
+                line.split("=")[0]: line.split("=")[1] for line in env_file.readlines()
+            }
+        data_url = env_vars["CUSTOM_DATASET_URL"]
+        save_path = str(self.data_dir / (self.data_dir.name + ".zip"))
+        download_from_yadisk(data_url, save_path)
+
+        print("Unziping data...")
+        with zipfile.ZipFile(save_path, "r") as zip_ref:
+            zip_ref.extractall(self.data_dir)
 
     def _create_index(self):
-        texts_path = self.data_dir / "transcriptions"
-
         index = []
-        for text_path in tqdm(texts_path.iterdir()):
-            with text_path.open() as f:
-                transcript = f.readline()
+        print("Index not found, creating...")
+        for parent, dirs, files in self.data_dir.walk():
+            for file in files:
+                if file.endswith(".txt"):
+                    with (parent / file).open() as f:
+                        text = f.readline()
 
-            index.append({"filename": str(text_path), "text": transcript})
+                    index.append({"filename": str(parent / file), "text": text})
+        print("Index created")
 
         return index
 
@@ -58,3 +71,4 @@ class CustomUtteranceDataset(BaseDataset):
             assert (
                 "filename" in entry
             ), "Dataset elements must have path to transcriptions"
+            assert "text" in entry, "Dataset elements must have transcriptions"
