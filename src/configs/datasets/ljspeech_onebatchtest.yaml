@@ -1,0 +1,12 @@
+train:
+  _target_: src.datasets.LJSpeechDataset
+  data_dir: data/datasets/LJSpeech-1.1
+  part: train
+  val_size: 150
+  limit: 10
+val:
+  _target_: src.datasets.LJSpeechDataset
+  data_dir: data/datasets/LJSpeech-1.1
+  part: val
+  val_size: 150
+  limit: 10

@@ -12,11 +12,14 @@ from src.utils.io_utils import ROOT_PATH, read_json, write_json
 
 
 class LJSpeechDataset(BaseDataset):
-    def __init__(self, data_dir, target_sr=22050, *args, **kwargs):
+    def __init__(self, data_dir, part, val_size=150, target_sr=22050, *args, **kwargs):
         self.data_dir = ROOT_PATH / data_dir
+        self.part = part
+        self.val_size = val_size
         self.target_sr = target_sr
 
         index = self._get_index()
+        index = self._split_index(index)
         super().__init__(index, *args, **kwargs)
 
     def _get_index(self):
@@ -29,8 +32,20 @@ class LJSpeechDataset(BaseDataset):
             write_json(index, index_path)
         return index
 
+    def _split_index(self, index):
+        if len(index) < self.val_size:
+            raise ValueError(
+                f"Validation size ({self.val_size}) is greater than total dataset size ({len(index)})"
+            )
+
+        if self.part == "train":
+            return index[: -self.val_size]
+        elif self.part == "val":
+            return index[-self.val_size :]
+        else:
+            raise ValueError(f"Unsupported part: {self.part}")
+
     def _load_dataset(self):
-        # TODO: make it work
         if self.data_dir.exists():
             return
 
