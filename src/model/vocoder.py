@@ -373,7 +373,7 @@ class MSD(nn.Module):
         return rs, gs, r_fmaps, g_fmaps
 
 
-class Descriminator(nn.Module):
+class Discriminator(nn.Module):
     def __init__(
         self,
         # mpd
@@ -438,7 +438,7 @@ class HiFiGAN(nn.Module):
         gen_kernels=[16, 16, 4, 4],
         mrf_kernels=[3, 7, 11],
         mrf_dilations=[[[1, 1], [3, 1], [5, 1]]] * 3,
-        # descriminator
+        # discriminator
         mpd_periods=[2, 3, 5, 7, 11],
         mpd_num_layers=4,
         msd_hid_channels=128,
@@ -459,7 +459,7 @@ class HiFiGAN(nn.Module):
             mrf_dilations,
             relu_slope,
         )
-        self.descriminator = Descriminator(
+        self.discriminator = Discriminator(
             mpd_periods,
             mpd_num_layers,
             msd_hid_channels,
@@ -477,5 +477,5 @@ class HiFiGAN(nn.Module):
     def generate(self, spec, **batch):
         return self.generator(spec)
 
-    def descriminate(self, audio, gen_audio, **batch):
-        return self.descriminator(audio, gen_audio)
+    def discriminate(self, audio, gen_audio, **batch):
+        return self.discriminator(audio, gen_audio)
