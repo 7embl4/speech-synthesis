@@ -1,5 +1,5 @@
 import torch
-from torch.nn.utils.rnn import pad_sequence
+import torch.nn.functional as F
 
 
 def collate_fn(dataset_items: list[dict]):
@@ -25,8 +25,14 @@ def collate_fn(dataset_items: list[dict]):
             result_batch[k].append(v)
 
     # pad tensors
-    for k, v in result_batch.items():
-        if isinstance(v[0], torch.Tensor):
-            result_batch[k] = pad_sequence(v, batch_first=True)
+    for key, list in result_batch.items():
+        if isinstance(list[0], torch.Tensor):
+            max_len = max([l.shape[-1] for l in list])  # noqa
+            new_list = []
+            for tensor in list:
+                diff = max_len - tensor.shape[-1]
+                new_list.append(F.pad(tensor, pad=(0, diff), value=0))
+
+            result_batch[key] = torch.stack(new_list).squeeze()
 
     return result_batch
