@@ -1,6 +1,6 @@
-torch==2.6.0
-torchaudio==2.6.0
-torchvision==0.21.0
+torch==2.2.1
+torchaudio==2.2.1
+torchvision==0.17.1
 librosa
 soundfile
 torchmetrics
@@ -13,6 +13,7 @@ wandb
 comet_ml
 hydra-core
 wget
+nisqa
 
 black
 isort
