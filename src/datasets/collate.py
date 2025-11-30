@@ -33,6 +33,6 @@ def collate_fn(dataset_items: list[dict]):
                 diff = max_len - tensor.shape[-1]
                 new_list.append(F.pad(tensor, pad=(0, diff), value=0))
 
-            result_batch[key] = torch.stack(new_list).squeeze()
+            result_batch[key] = torch.stack(new_list)
 
     return result_batch
