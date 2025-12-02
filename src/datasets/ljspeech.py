@@ -105,11 +105,16 @@ class LJSpeechDataset(BaseDataset):
             "audio": audio,
             "text": metadata["text"],
             "norm_text": metadata["norm_text"],
+            "spec": self.get_spectrogram(audio),
         }
 
         instance_data = self.preprocess_data(instance_data)
-
         return instance_data
+
+    def get_spectrogram(self, audio):
+        if self.instance_transforms is not None:
+            spec = self.instance_transforms["get_spectrogram"](audio)
+        return spec.squeeze()
 
     def _assert_index_is_valid(self, index):
         for entry in index:

@@ -3,8 +3,6 @@ torchaudio==2.6.0
 torchvision==0.21.0
 librosa
 soundfile
-torchmetrics
-torch_audiomentations
 numpy==1.26.4
 tqdm
 matplotlib
@@ -13,6 +11,7 @@ wandb
 comet_ml
 hydra-core
 wget
+git+https://github.com/sarulab-speech/UTMOSv2.git
 
 black
 isort

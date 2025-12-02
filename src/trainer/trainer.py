@@ -76,13 +76,20 @@ class Trainer(BaseTrainer):
             metrics.update(met.name, met(**batch))
         return batch
 
-    def _freeze(self, model: nn.Module):
-        for param in model.parameters():
-            param.requires_grad_(False)
+    def _log_audio(
+        self, audio: torch.Tensor, gen_audio: torch.Tensor, log_count=10, **batch
+    ):
+        """
+        Logs `log_count` of audios in batch
+        """
+        for i in range(log_count):
+            real = audio[i].cpu().detach()
+            gen = gen_audio[i].cpu().detach()
 
-    def _unfreeze(self, model: nn.Module):
-        for param in model.parameters():
-            param.requires_grad_(True)
+            self.writer.add_audio(f"real_idx{i}_step{self.writer.step}", real, 22050)
+            self.writer.add_audio(
+                f"generated_idx{i}_step{self.writer.step}", gen, 22050
+            )
 
     def _log_batch(self, batch_idx, batch, mode="train"):
         """
@@ -96,13 +103,15 @@ class Trainer(BaseTrainer):
             mode (str): train or inference. Defines which logging
                 rules to apply.
         """
-        # method to log data from you batch
-        # such as audio, text or images, for example
-
-        # logging scheme might be different for different partitions
-        if mode == "train":  # the method is called only every self.log_step steps
-            # Log Stuff
-            pass
+        if mode == "train":
+            self._log_audio()
         else:
-            # Log Stuff
-            pass
+            self._log_audio()
+
+    def _freeze(self, model: nn.Module):
+        for param in model.parameters():
+            param.requires_grad_(False)
+
+    def _unfreeze(self, model: nn.Module):
+        for param in model.parameters():
+            param.requires_grad_(True)

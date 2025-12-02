@@ -130,7 +130,6 @@ class Generator(nn.Module):
         # main layers
         for layer in self.layers:
             x = layer(x)
-            print(x.shape)
 
         # gate to audio
         x = self.final_conv(x)
@@ -434,7 +433,7 @@ class HiFiGAN(nn.Module):
         self,
         # generator
         mel_channels=80,
-        hid_channels=512,
+        hid_channels=128,
         gen_kernels=[16, 16, 4, 4],
         mrf_kernels=[3, 7, 11],
         mrf_dilations=[[[1, 1], [3, 1], [5, 1]]] * 3,

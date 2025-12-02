@@ -51,7 +51,7 @@ class MelSpectrogram(nn.Module):
         ).T
         self.mel_spectrogram.mel_scale.fb.copy_(torch.tensor(mel_basis))
 
-    def forward(self, audio: torch.Tensor) -> torch.Tensor:
+    def forward(self, audio: torch.Tensor, **batch) -> torch.Tensor:
         """
         :param audio: Expected shape is [B, T]
         :return: Shape is [B, n_mels, T']
