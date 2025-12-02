@@ -1,50 +1,40 @@
-import inspect
 import os
-from pathlib import Path
 
 import torch
-import torchaudio.functional as F
-from nisqa.NISQA_lib import NISQA, NISQA_DIM
+import torchaudio
+import utmosv2
 from torch import nn
 
-from src.transforms import MelSpectrogram, MelSpectrogramConfig
+from src.utils.io_utils import ROOT_PATH
 
 
 class NeuralMOS(nn.Module):
-    """NOT WORKING FOR NOW"""
+    """
+    Calcs MOS using UTMOSv2 model
+    """
 
-    def __init__(self, weights_path):
+    def __init__(self):
         super().__init__()
-        self.weights_path = weights_path
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-
-        # mel_cfg = MelSpectrogramConfig(
-
-        # )
-        self.mel_spec = MelSpectrogram()
-        self.met = self._load_model()
-        # self.met = NISQA(cnn_fc_out_h=20, td="lstm", cnn_model="standard", pool="avg")
-
-        self.met.eval()
+        self.model = utmosv2.create_model(pretrained=True, device=self.device)
+        self.temp_dir = ROOT_PATH / "data/temp"
 
     @torch.no_grad()
     def forward(self, gen_audio: torch.Tensor, **batch):
+        """
+        Saves generated audio and calculates metric
+        """
         B, C, T = gen_audio.shape
-        spec = self.mel_spec(gen_audio)  # [B, C, N_mels, T_spec]
-        spec = spec.unsqueeze(1)
-        spec = torch.rand(1, 1, 1, 48, 15)
-        n_wins = torch.tensor([1] * B)
-        res = self.met(spec, n_wins)
-        print(res)
+        os.makedirs(str(self.temp_dir), exist_ok=True)
+        for i in range(B):
+            torchaudio.save(f"data/temp/gen_audio_{i}.wav", gen_audio[i], 22050)
 
-    def _load_model(self):
-        checkpoint = torch.load(self.weights_path, map_location=self.device)
-        model_init_args = list(inspect.signature(NISQA.__init__).parameters.keys())[1:]
-        model_args = {}
-        for arg, value in checkpoint["args"].items():
-            if arg in model_init_args:
-                model_args[arg] = value
-        print(model_args)
-        model = NISQA(**model_args)
-        model.load_state_dict(checkpoint["model_state_dict"])
-        return model
+        out = self.model.predict(input_dir=str(self.temp_dir), verbose=False)
+        res = 0
+        for r in out:
+            print(r["predicted_mos"])
+            res += r["predicted_mos"]
+
+        os.remove(self.temp_dir)
+        res = torch.tensor(res)
+        return res.mean()
