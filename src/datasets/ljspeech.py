@@ -1,4 +1,5 @@
 import os
+import random
 import tarfile
 
 import pandas as pd
@@ -12,11 +13,21 @@ from src.utils.io_utils import ROOT_PATH, read_json, write_json
 
 
 class LJSpeechDataset(BaseDataset):
-    def __init__(self, data_dir, part, val_size=150, target_sr=22050, *args, **kwargs):
+    def __init__(
+        self,
+        data_dir,
+        part,
+        val_size=150,
+        target_sr=22050,
+        max_chunk_size=32768,
+        *args,
+        **kwargs,
+    ):
         self.data_dir = ROOT_PATH / data_dir
         self.part = part
         self.val_size = val_size
         self.target_sr = target_sr
+        self.max_chunk_size = max_chunk_size
 
         index = self._get_index()
         index = self._split_index(index)
@@ -99,6 +110,12 @@ class LJSpeechDataset(BaseDataset):
 
         if sr != self.target_sr:
             audio = F.resample(audio, sr, self.target_sr)
+
+        # get random chunk of audio
+        audio_len = audio.shape[-1]
+        if audio_len > self.max_chunk_size:
+            start_ind = random.randint(0, audio_len - self.max_chunk_size)
+            audio = audio[:, start_ind : start_ind + self.max_chunk_size]
 
         instance_data = {
             "filename": metadata["filename"],
