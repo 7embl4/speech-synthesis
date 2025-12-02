@@ -37,13 +37,17 @@ class BaseTrainer:
         """
         Args:
             model (nn.Module): PyTorch model.
-            criterion (nn.Module): loss function for model training.
+            g_criterion (nn.Module): generator loss function.
+            g_optimizer (Optimizer): generator optimizer.
+            g_lr_scheduler (LRScheduler): learning rate scheduler for the
+                generator optimizer.
+            d_criterion (nn.Module): discriminator loss function.
+            d_optimizer (Optimizer): discriminator optimizer.
+            d_lr_scheduler (LRScheduler): learning rate scheduler for the
+                discriminator optimizer.
             metrics (dict): dict with the definition of metrics for training
                 (metrics[train]) and inference (metrics[inference]). Each
                 metric is an instance of src.metrics.BaseMetric.
-            optimizer (Optimizer): optimizer for the model.
-            lr_scheduler (LRScheduler): learning rate scheduler for the
-                optimizer.
             config (DictConfig): experiment config containing training config.
             device (str): device for tensors and model.
             dataloaders (dict[DataLoader]): dataloaders for different
@@ -99,7 +103,6 @@ class BaseTrainer:
         self.epochs = self.cfg_trainer.n_epochs
 
         # configuration to monitor model performance and save best
-
         self.save_period = (
             self.cfg_trainer.save_period
         )  # checkpoint each save_period epochs
@@ -137,7 +140,6 @@ class BaseTrainer:
         )
 
         # define checkpoint dir and init everything if required
-
         self.checkpoint_dir = (
             ROOT_PATH / config.trainer.save_dir / config.writer.run_name
         )

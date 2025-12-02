@@ -91,7 +91,7 @@ class Trainer(BaseTrainer):
         self, audio: torch.Tensor, gen_audio: torch.Tensor, log_count=10, **batch
     ):
         """
-        Logs `log_count` of audios in batch
+        Logs `log_count` of audios from batch
         """
         N = min(audio.shape[0], log_count)
         for i in range(N):
@@ -111,7 +111,7 @@ class Trainer(BaseTrainer):
         Args:
             batch_idx (int): index of the current batch.
             batch (dict): dict-based batch after going through
-                the 'process_batch' function.
+                the `process_batch` function.
             mode (str): train or inference. Defines which logging
                 rules to apply.
         """
@@ -119,11 +119,3 @@ class Trainer(BaseTrainer):
             self._log_audio(**batch)
         else:
             self._log_audio(**batch)
-
-    def _freeze(self, model: nn.Module):
-        for param in model.parameters():
-            param.requires_grad_(False)
-
-    def _unfreeze(self, model: nn.Module):
-        for param in model.parameters():
-            param.requires_grad_(True)

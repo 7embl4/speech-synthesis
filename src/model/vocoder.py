@@ -7,7 +7,7 @@ from torch.nn.utils.rnn import pad_sequence
 
 class ResBlock(nn.Module):
     """
-    Residual Block for HiFiGAN generator
+    Residual Block for HiFi-GAN Generator
     """
 
     def __init__(self, hid_channels, kernel_size, dilations, relu_slope=0.1):
@@ -39,7 +39,7 @@ class ResBlock(nn.Module):
 
 class MRF(nn.Module):
     """
-    MRF block for HiFiGAN generator
+    Multi-Receptive Field Fusion for HiFi-GAN Generator
     """
 
     def __init__(self, kernels, dilations, hid_channels=512, relu_slope=0.1):
@@ -70,7 +70,7 @@ class MRF(nn.Module):
 
 class Generator(nn.Module):
     """
-    HiFiGAN generator
+    HiFi-GAN Generator
     """
 
     def __init__(
@@ -211,6 +211,10 @@ class PeriodDiscr(nn.Module):
 
 
 class MPD(nn.Module):
+    """
+    Multi-Scale Discriminator for HiFi-GAN
+    """
+
     def __init__(
         self, in_channels=1, periods=[2, 3, 5, 7, 11], num_layers=4, relu_slope=0.1
     ):
@@ -308,6 +312,10 @@ class SubDiscr(nn.Module):
 
 
 class MSD(nn.Module):
+    """
+    Multi-Period Discriminator for HiFi-GAN
+    """
+
     def __init__(
         self,
         in_channels=1,
@@ -349,6 +357,10 @@ class MSD(nn.Module):
 
 
 class Discriminator(nn.Module):
+    """
+    Combined Discriminator for HiFi-GAN
+    """
+
     def __init__(
         self,
         # mpd
@@ -379,9 +391,7 @@ class Discriminator(nn.Module):
     def forward(self, real_audio: torch.Tensor, gen_audio: torch.Tensor):
         real_audio, gen_audio = self._pad_to_equal(real_audio, gen_audio)
 
-        print("mpd...")
         mpd_rs, mpd_gs, mpd_r_fmaps, mpd_g_fmaps = self.mpd(real_audio, gen_audio)
-        print("msd...")
         msd_rs, msd_gs, msd_r_fmaps, msd_g_fmaps = self.msd(real_audio, gen_audio)
 
         return {
@@ -407,6 +417,10 @@ class Discriminator(nn.Module):
 
 
 class HiFiGAN(nn.Module):
+    """
+    HiFi-GAN implementation (https://arxiv.org/pdf/2010.05646)
+    """
+
     def __init__(
         self,
         # generator

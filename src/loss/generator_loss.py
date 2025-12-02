@@ -6,6 +6,10 @@ from src.transforms import MelSpectrogram
 
 
 class GeneratorLoss(nn.Module):
+    """
+    Generator loss, combined from `adversarial`, `feature matching` and `mel-spectrogram` losses
+    """
+
     def __init__(self, lambda_fm=2, lambda_mel=45):
         super().__init__()
         self.lambda_fm = lambda_fm

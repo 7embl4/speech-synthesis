@@ -3,6 +3,10 @@ from torch import nn
 
 
 class DiscriminatorLoss(nn.Module):
+    """
+    Discriminator loss, uses just `adversarial` loss
+    """
+
     def __init__(self):
         super().__init__()
 

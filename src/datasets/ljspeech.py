@@ -13,6 +13,10 @@ from src.utils.io_utils import ROOT_PATH, read_json, write_json
 
 
 class LJSpeechDataset(BaseDataset):
+    """
+    LJSpeech dataset class
+    """
+
     def __init__(
         self,
         data_dir,
@@ -23,6 +27,15 @@ class LJSpeechDataset(BaseDataset):
         *args,
         **kwargs,
     ):
+        """
+        Args:
+            data_dir: local directory either where dataset contains
+                or where it going to be downloaded
+            part: dataset part (train or val)
+            val_size: number of audios for validation
+            target_sr: audio sample rate
+            max_chunk_size: maximum size of an audio chunk (in number of samples)
+        """
         self.data_dir = ROOT_PATH / data_dir
         self.part = part
         self.val_size = val_size
@@ -34,6 +47,9 @@ class LJSpeechDataset(BaseDataset):
         super().__init__(index, *args, **kwargs)
 
     def _get_index(self):
+        """
+        Read or create index
+        """
         index_path = self.data_dir / (self.data_dir.name + ".json")
         if index_path.exists():
             index = read_json(index_path)
@@ -44,6 +60,9 @@ class LJSpeechDataset(BaseDataset):
         return index
 
     def _split_index(self, index):
+        """
+        Split index on train and val
+        """
         if len(index) < self.val_size:
             raise ValueError(
                 f"Validation size ({self.val_size}) is greater than total dataset size ({len(index)})"
@@ -57,6 +76,9 @@ class LJSpeechDataset(BaseDataset):
             raise ValueError(f"Unsupported part: {self.part}")
 
     def _load_dataset(self):
+        """
+        Load dataset from https://keithito.com/LJ-Speech-Dataset/
+        """
         if self.data_dir.exists():
             return
 
@@ -82,6 +104,9 @@ class LJSpeechDataset(BaseDataset):
             tar.extractall(path=str(self.data_dir))
 
     def _create_index(self):
+        """
+        Create index if it doesn't exist
+        """
         texts_df = pd.read_csv(
             str(self.data_dir / "metadata.csv"),
             sep="|",
@@ -103,10 +128,13 @@ class LJSpeechDataset(BaseDataset):
         return index
 
     def __getitem__(self, ind):
+        """
+        Get item by index
+        """
         metadata = self._index[ind]
 
         audio, sr = torchaudio.load(metadata["filename"])
-        audio = audio[:1]  # get only first channel
+        audio = audio[:1, :]  # get only first channel
 
         if sr != self.target_sr:
             audio = F.resample(audio, sr, self.target_sr)
@@ -129,10 +157,16 @@ class LJSpeechDataset(BaseDataset):
         return instance_data
 
     def get_spectrogram(self, audio):
+        """
+        Special transform to get spectrogram from audio
+        """
         if self.instance_transforms is not None:
             spec = self.instance_transforms["get_spectrogram"](audio)
         return spec.squeeze()
 
     def _assert_index_is_valid(self, index):
+        """
+        Check if index contains required information
+        """
         for entry in index:
             assert "filename" in entry, "Dataset elements must have path to audio"
