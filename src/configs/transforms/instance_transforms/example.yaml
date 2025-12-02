@@ -1,7 +1,7 @@
 train:
-  audio:
+  get_spectrogram:
     _target_: src.transforms.MelSpectrogram
 
 inference:
-  audio:
+  get_spectrogram:
     _target_: src.transforms.MelSpectrogram

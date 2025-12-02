@@ -28,7 +28,8 @@ class GeneratorLoss(nn.Module):
         fm_loss = self._calc_fm_loss(mpd_r_fmaps, mpd_g_fmaps, msd_r_fmaps, msd_g_fmaps)
         mel_loss = self._calc_mel_loss(spec, gen_audio)
 
-        return adv_loss + self.lambda_fm * fm_loss + self.lambda_mel * mel_loss
+        total_loss = adv_loss + self.lambda_fm * fm_loss + self.lambda_mel * mel_loss
+        return {"g_loss": total_loss}
 
     def _calc_adv_loss(self, mpd_gs, msd_gs):
         mpd_loss = 0.0
@@ -68,10 +69,9 @@ class GeneratorLoss(nn.Module):
 
     def _pad_to_equal(self, real_spec: torch.Tensor, gen_spec: torch.Tensor):
         diff = abs(real_spec.shape[-1] - gen_spec.shape[-1])
-
         if real_spec.shape[-1] < gen_spec.shape[-1]:
-            real_spec = F.pad(real_spec, (0, diff), mode="reflect")
+            real_spec = F.pad(real_spec, (0, diff, 0, 0), mode="reflect")
         else:
-            real_spec = F.pad(gen_spec, (0, diff), mode="reflect")
+            gen_spec = F.pad(gen_spec, (0, diff, 0, 0), mode="reflect")
 
         return real_spec, gen_spec

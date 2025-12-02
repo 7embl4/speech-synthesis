@@ -11,9 +11,6 @@ class Trainer(BaseTrainer):
         Run batch through the model, compute metrics, compute loss,
         and do training step (during training stage).
 
-        The function expects that criterion aggregates all losses
-        (if there are many) into a single one defined in the 'loss' key.
-
         Args:
             batch (dict): dict-based batch containing the data from
                 the dataloader.
@@ -24,6 +21,9 @@ class Trainer(BaseTrainer):
             batch (dict): dict-based batch containing the data from
                 the dataloader (possibly transformed via batch transform),
                 model outputs, and losses.
+
+        Eto moi commenty (net, Boris, ya ne generil ih neironkoi 😤),
+            ya ih pisal shtoby samomu ponyatno bylo che delau
         """
         batch = self.move_batch_to_device(batch)
         batch = self.transform_batch(batch)  # transform batch on device -- faster
@@ -31,46 +31,57 @@ class Trainer(BaseTrainer):
         metric_funcs = self.metrics["inference"]
         if self.is_train:
             metric_funcs = self.metrics["train"]
-            self.g_optimizer.zero_grad()
-            self.d_optimizer.zero_grad()
 
-        # discriminator step
-        self._unfreeze(self.model.discriminator)
-        self._freeze(self.model.generator)
+        # generator forward
+        g_outputs = self.model.generate(**batch)
+        batch.update(g_outputs)
 
-        outputs = self.model.discriminate(**batch)
-        batch.update(outputs)
-
-        d_loss = self.d_criterion(**batch)
-        batch.update(d_loss)
+        # 1st discriminator forward
+        # to get score of generated audio
+        d_outputs = self.model.discriminate(
+            audio=batch["audio"],
+            gen_audio=batch["gen_audio"].detach(),  # detach from generator comp graph
+        )
+        batch.update(d_outputs)
 
         if self.is_train:
+            # zeroing grads from previous batch
+            # and update discriminator weights
+            self.d_optimizer.zero_grad()
+            d_loss = self.d_criterion(**batch)
+            batch.update(d_loss)
             batch["d_loss"].backward()
-            self._clip_grad_norm()
             self.d_optimizer.step()
+
+            # 2nd discriminator forward without detach
+            # to update generator weights
+            d_outputs = self.model.discriminate(
+                audio=batch["audio"], gen_audio=batch["gen_audio"]
+            )
+            batch.update(d_outputs)
+
+            # calc generator loss and update it's weights;
+            # discriminator grads updated as well,
+            # but we don't care, since it will be zeroed in next batch
+            self.g_optimizer.zero_grad()
+            g_loss = self.g_criterion(**batch)
+            batch.update(g_loss)
+            batch["g_loss"].backward()
+            self.g_optimizer.step()
+
+            # clip norm and decay lr
+            self._clip_grad_norm()
+            if self.g_lr_scheduler is not None:
+                self.g_lr_scheduler.step()
             if self.d_lr_scheduler is not None:
                 self.d_lr_scheduler.step()
 
-        # generator step
-        self._unfreeze(self.model.generator)
-        self._freeze(self.model.discriminator)
-
-        outputs = self.model.generate(**batch)
-        batch.update(outputs)
-
-        g_loss = self.g_criterion(**batch)
-        batch.update(g_loss)
-
-        if self.is_train:
-            batch["g_loss"].backward()
-            self._clip_grad_norm()
-            self.g_optimizer.step()
-            if self.g_lr_scheduler is not None:
-                self.g_lr_scheduler.step()
-
         # update metrics for each loss (in case of multiple losses)
         for loss_name in self.config.writer.loss_names:
-            metrics.update(loss_name, batch[loss_name].item())
+            if self.is_train:
+                metrics.update(loss_name, batch[loss_name].item())
+            else:
+                metrics.update(loss_name, 0)  # no loss on val
 
         for met in metric_funcs:
             metrics.update(met.name, met(**batch))
@@ -82,9 +93,10 @@ class Trainer(BaseTrainer):
         """
         Logs `log_count` of audios in batch
         """
-        for i in range(log_count):
-            real = audio[i].cpu().detach()
-            gen = gen_audio[i].cpu().detach()
+        N = min(audio.shape[0], log_count)
+        for i in range(N):
+            real = audio[i].detach().cpu()
+            gen = gen_audio[i].detach().cpu()
 
             self.writer.add_audio(f"real_idx{i}_step{self.writer.step}", real, 22050)
             self.writer.add_audio(
@@ -104,9 +116,9 @@ class Trainer(BaseTrainer):
                 rules to apply.
         """
         if mode == "train":
-            self._log_audio()
+            self._log_audio(**batch)
         else:
-            self._log_audio()
+            self._log_audio(**batch)
 
     def _freeze(self, model: nn.Module):
         for param in model.parameters():

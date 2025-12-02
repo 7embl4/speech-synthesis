@@ -238,8 +238,8 @@ class SubDiscr(nn.Module):
         in_channels=1,
         hid_channels=128,
         kernel_size=41,
-        groups=16,
-        strides=[2, 4, 4],
+        n_layers=4,
+        stride=4,
         pooling=1,
         is_first=False,
         relu_slope=0.1,
@@ -253,56 +253,32 @@ class SubDiscr(nn.Module):
                 nn.Sequential(
                     norm(nn.Conv1d(in_channels, hid_channels, 15, padding=7)),
                     nn.LeakyReLU(relu_slope),
-                ),
-                nn.Sequential(
-                    norm(
-                        nn.Conv1d(
-                            hid_channels,
-                            hid_channels,
-                            kernel_size,
-                            groups=4,
-                            padding=kernel_size // 2,
-                        )
-                    ),
-                    nn.LeakyReLU(relu_slope),
-                ),
+                )
             ]
         )
 
         self.layers = nn.ModuleList([])
-        N = len(strides)
-        for i in range(N):
+        for i in range(n_layers):
             self.layers.append(
                 nn.Sequential(
                     norm(
                         nn.Conv1d(
                             hid_channels,
-                            2 * hid_channels,
+                            hid_channels * (1 if i + 1 == n_layers else 4),
                             kernel_size,
-                            stride=strides[i],
-                            groups=groups,
+                            stride=stride,
+                            groups=hid_channels // 4,
                             padding=kernel_size // 2,
                         )
                     ),
                     nn.LeakyReLU(relu_slope),
                 )
             )
-            hid_channels = hid_channels * 2
+            hid_channels = hid_channels * 4
 
+        hid_channels = hid_channels // 4
         self.final_gates = nn.ModuleList(
             [
-                nn.Sequential(
-                    norm(
-                        nn.Conv1d(
-                            hid_channels,
-                            hid_channels,
-                            kernel_size,
-                            groups=groups,
-                            padding=kernel_size // 2,
-                        )
-                    ),
-                    nn.LeakyReLU(relu_slope),
-                ),
                 nn.Sequential(
                     norm(nn.Conv1d(hid_channels, hid_channels, 5, padding=2)),
                     nn.LeakyReLU(relu_slope),
@@ -337,8 +313,8 @@ class MSD(nn.Module):
         in_channels=1,
         hid_channels=128,
         kernel_size=41,
-        groups=16,
-        strides=[2, 4, 4],
+        n_layers=4,
+        stride=4,
         pools=[1, 2, 4],
         relu_slope=0.1,
     ):
@@ -351,8 +327,8 @@ class MSD(nn.Module):
                     in_channels,
                     hid_channels,
                     kernel_size,
-                    groups,
-                    strides,
+                    n_layers,
+                    stride,
                     pooling=pools[i],
                     is_first=(i == 0),
                     relu_slope=relu_slope,
@@ -403,7 +379,9 @@ class Discriminator(nn.Module):
     def forward(self, real_audio: torch.Tensor, gen_audio: torch.Tensor):
         real_audio, gen_audio = self._pad_to_equal(real_audio, gen_audio)
 
+        print("mpd...")
         mpd_rs, mpd_gs, mpd_r_fmaps, mpd_g_fmaps = self.mpd(real_audio, gen_audio)
+        print("msd...")
         msd_rs, msd_gs, msd_r_fmaps, msd_g_fmaps = self.msd(real_audio, gen_audio)
 
         return {
@@ -442,8 +420,8 @@ class HiFiGAN(nn.Module):
         mpd_num_layers=4,
         msd_hid_channels=128,
         msd_kernel_size=41,
-        msd_groups=16,
-        msd_strides=[2, 4, 4],
+        msd_n_layers=4,
+        msd_stride=4,
         msd_pools=[1, 2, 4],
         # common
         audio_channels=1,
@@ -463,8 +441,8 @@ class HiFiGAN(nn.Module):
             mpd_num_layers,
             msd_hid_channels,
             msd_kernel_size,
-            msd_groups,
-            msd_strides,
+            msd_n_layers,
+            msd_stride,
             msd_pools,
             audio_channels,
             relu_slope,

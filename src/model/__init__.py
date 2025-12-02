@@ -1,4 +1,4 @@
 from src.model.baseline_model import BaselineModel
-from src.model.vocoder import MPD, MSD, Generator
+from src.model.vocoder import HiFiGAN
 
-__all__ = ["BaselineModel", "Generator", "MPD", "MDS"]
+__all__ = ["BaselineModel", "HiFiGAN"]

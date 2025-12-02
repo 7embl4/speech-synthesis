@@ -1,5 +1,3 @@
-from typing import List
-
 import torch
 from torch import nn
 
@@ -17,4 +15,5 @@ class DiscriminatorLoss(nn.Module):
         for i in range(len(msd_rs)):
             msd_loss = msd_loss + torch.mean((msd_rs[i] - 1) ** 2 + msd_gs[i] ** 2)
 
-        return mpd_loss + msd_loss
+        total_loss = mpd_loss + msd_loss
+        return {"d_loss": total_loss}
