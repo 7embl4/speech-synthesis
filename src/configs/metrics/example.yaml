@@ -1,24 +1,15 @@
 device: "auto"
-train: []
-inference: []
 
-# train:
-#   - _target_: src.metrics.ExampleMetric
-#     metric:
-#       _target_: torchmetrics.classification.MulticlassAccuracy
-#       num_classes: 10
-#     device: ${metrics.device}
-#     name: "TRAIN_MulticlassAccuracy" # just an example to see difference
-# inference: # metrics that are calculated during inference (eval)
-#   - _target_: src.metrics.ExampleMetric
-#     metric:
-#       _target_: torchmetrics.classification.MulticlassAccuracy
-#       num_classes: 10
-#     device: ${metrics.device}
-#     name: "MulticlassAccuracy"
-#   - _target_: src.metrics.ExampleMetric
-#     metric:
-#       _target_: torchmetrics.classification.MulticlassAccuracy
-#       num_classes: 10
-#     device: ${metrics.device}
-#     name: "MulticlassAccuracy2.0"
+train:
+  - _target_: src.metrics.NeuralMOS
+    model_path: models/nisqa_mos_only.tar
+    mode: predict_dir
+    target_sr: 22050
+    name: "NeuralMOS"
+
+inference:
+  - _target_: src.metrics.NeuralMOS
+    model_path: models/nisqa_mos_only.tar
+    mode: predict_dir
+    target_sr: 22050
+    name: "NeuralMOS"
