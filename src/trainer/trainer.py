@@ -80,9 +80,6 @@ class Trainer(BaseTrainer):
         for loss_name in self.config.writer.loss_names:
             if self.is_train:
                 metrics.update(loss_name, batch[loss_name].item())
-                print(loss_name, batch[loss_name])
-            else:
-                metrics.update(loss_name, 0)  # no loss on val
 
         for met in metric_funcs:
             metrics.update(met.name, met(**batch))

@@ -49,9 +49,6 @@ class GeneratorLoss(nn.Module):
         for i in range(len(msd_gs)):
             msd_loss = msd_loss + torch.mean((msd_gs[i] - 1) ** 2)
 
-        print("adv_mpd_loss:", mpd_loss)
-        print("adv_msd_loss:", msd_loss)
-
         return mpd_loss + msd_loss
 
     def _calc_fm_loss(self, mpd_r_fmaps, mpd_g_fmaps, msd_r_fmaps, msd_g_fmaps):
@@ -62,8 +59,6 @@ class GeneratorLoss(nn.Module):
         msd_loss = 0.0
         for i in range(len(msd_r_fmaps)):
             msd_loss = msd_loss + torch.mean(torch.abs(msd_r_fmaps[i] - msd_g_fmaps[i]))
-        print("fm_mpd_loss:", mpd_loss)
-        print("fm_msd_loss:", msd_loss)
 
         return mpd_loss + msd_loss
 

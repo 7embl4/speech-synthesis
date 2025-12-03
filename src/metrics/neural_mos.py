@@ -37,7 +37,9 @@ class NeuralMOS(BaseMetric):
         os.makedirs(str(self.temp_dir), exist_ok=True)
         for i in range(B):
             torchaudio.save(
-                str(self.temp_dir / f"gen_audio_{i}.wav"), gen_audio[i], self.target_sr
+                str(self.temp_dir / f"gen_audio_{i}.wav"),
+                gen_audio[i].detach().cpu(),
+                self.target_sr,
             )
 
         # load model
