@@ -48,12 +48,12 @@ def main(config):
 
     # build optimizer, learning rate scheduler
     g_trainable_params = filter(lambda p: p.requires_grad, model.generator.parameters())
+    g_optimizer = instantiate(config.g_optimizer, params=g_trainable_params)
+    g_lr_scheduler = instantiate(config.g_lr_scheduler, optimizer=g_optimizer)
     d_trainable_params = filter(
         lambda p: p.requires_grad, model.discriminator.parameters()
     )
-    g_optimizer = instantiate(config.g_optimizer, params=g_trainable_params)
     d_optimizer = instantiate(config.d_optimizer, params=d_trainable_params)
-    g_lr_scheduler = instantiate(config.g_lr_scheduler, optimizer=g_optimizer)
     d_lr_scheduler = instantiate(config.d_lr_scheduler, optimizer=d_optimizer)
 
     # epoch_len = number of iterations for iteration-based training

@@ -13,9 +13,8 @@ g_optimizer:
   lr: 2e-4
   weight_decay: 0.01
 g_lr_scheduler:
-  _target_: torch.optim.lr_scheduler.StepLR
+  _target_: torch.optim.lr_scheduler.ExponentialLR
   gamma: 0.999
-  step_size: ${trainer.epoch_len}
 g_loss_function:
   _target_: src.loss.GeneratorLoss
 
@@ -25,15 +24,14 @@ d_optimizer:
   lr: 2e-4
   weight_decay: 0.01
 d_lr_scheduler:
-  _target_: torch.optim.lr_scheduler.StepLR
+  _target_: torch.optim.lr_scheduler.ExponentialLR
   gamma: 0.999
-  step_size: ${trainer.epoch_len}
 d_loss_function:
   _target_: src.loss.DiscriminatorLoss
 
 trainer:
   log_step: 50
-  n_epochs: 100
+  n_epochs: 2000
   epoch_len: 500
   device_tensors: ["spec", "audio"] # which tensors should be on device (ex. GPU)
   resume_from: null # null or path to the checkpoint dir with *.pth and config.yaml

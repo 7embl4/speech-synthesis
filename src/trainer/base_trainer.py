@@ -129,7 +129,8 @@ class BaseTrainer:
         self.metrics = metrics
         self.train_metrics = MetricTracker(
             *self.config.writer.loss_names,
-            "grad_norm",
+            "g_grad_norm",
+            "d_grad_norm",
             *[m.name for m in self.metrics["train"]],
             writer=self.writer,
         )
@@ -227,7 +228,8 @@ class BaseTrainer:
                 else:
                     raise e
 
-            self.train_metrics.update("grad_norm", self._get_grad_norm())
+            self.train_metrics.update("g_grad_norm", self._get_g_grad_norm())
+            self.train_metrics.update("d_grad_norm", self._get_d_grad_norm())
 
             # log current results
             if batch_idx % self.log_step == 0:
@@ -393,13 +395,19 @@ class BaseTrainer:
         Clips the gradient norm by the value defined in
         config.trainer.max_grad_norm
         """
-        if self.config["trainer"].get("max_grad_norm", None) is not None:
+        if self.config["trainer"].get("g_max_grad_norm", None) is not None:
             clip_grad_norm_(
-                self.model.parameters(), self.config["trainer"]["max_grad_norm"]
+                self.model.generator.parameters(),
+                self.config["trainer"]["g_max_grad_norm"],
+            )
+        if self.config["trainer"].get("d_max_grad_norm", None) is not None:
+            clip_grad_norm_(
+                self.model.discriminator.parameters(),
+                self.config["trainer"]["d_max_grad_norm"],
             )
 
     @torch.no_grad()
-    def _get_grad_norm(self, norm_type=2):
+    def _get_g_grad_norm(self, norm_type=2):
         """
         Calculates the gradient norm for logging.
 
@@ -408,7 +416,27 @@ class BaseTrainer:
         Returns:
             total_norm (float): the calculated norm.
         """
-        parameters = self.model.parameters()
+        parameters = self.model.generator.parameters()
+        if isinstance(parameters, torch.Tensor):
+            parameters = [parameters]
+        parameters = [p for p in parameters if p.grad is not None]
+        total_norm = torch.norm(
+            torch.stack([torch.norm(p.grad.detach(), norm_type) for p in parameters]),
+            norm_type,
+        )
+        return total_norm.item()
+
+    @torch.no_grad()
+    def _get_d_grad_norm(self, norm_type=2):
+        """
+        Calculates the gradient norm for logging.
+
+        Args:
+            norm_type (float | str | None): the order of the norm.
+        Returns:
+            total_norm (float): the calculated norm.
+        """
+        parameters = self.model.discriminator.parameters()
         if isinstance(parameters, torch.Tensor):
             parameters = [parameters]
         parameters = [p for p in parameters if p.grad is not None]

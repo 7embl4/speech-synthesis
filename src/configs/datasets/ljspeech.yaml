@@ -3,12 +3,12 @@ train:
   data_dir: data/datasets/LJSpeech-1.1
   part: train
   val_size: 150
-  max_chunk_size: 32768
+  max_chunk_size: 8192
   instance_transforms: ${transforms.instance_transforms.train}
 val:
   _target_: src.datasets.LJSpeechDataset
   data_dir: data/datasets/LJSpeech-1.1
   part: val
   val_size: 150
-  max_chunk_size: 32768
+  max_chunk_size: 8192
   instance_transforms: ${transforms.instance_transforms.inference}

@@ -33,7 +33,12 @@ class GeneratorLoss(nn.Module):
         mel_loss = self._calc_mel_loss(spec, gen_audio)
 
         total_loss = adv_loss + self.lambda_fm * fm_loss + self.lambda_mel * mel_loss
-        return {"g_loss": total_loss}
+        return {
+            "g_loss": total_loss,
+            "g_adv_loss": adv_loss,
+            "g_fm_loss": fm_loss,
+            "g_mel_loss": mel_loss,
+        }
 
     def _calc_adv_loss(self, mpd_gs, msd_gs):
         mpd_loss = 0.0
@@ -44,28 +49,26 @@ class GeneratorLoss(nn.Module):
         for i in range(len(msd_gs)):
             msd_loss = msd_loss + torch.mean((msd_gs[i] - 1) ** 2)
 
+        print("adv_mpd_loss:", mpd_loss)
+        print("adv_msd_loss:", msd_loss)
+
         return mpd_loss + msd_loss
 
     def _calc_fm_loss(self, mpd_r_fmaps, mpd_g_fmaps, msd_r_fmaps, msd_g_fmaps):
         mpd_loss = 0.0
-        N, M = len(mpd_r_fmaps), len(mpd_r_fmaps[0])
-        for i in range(N):
-            for j in range(M):
-                mpd_loss = mpd_loss + torch.mean(
-                    torch.abs(mpd_r_fmaps[i][j] - mpd_g_fmaps[i][j])
-                )
+        for i in range(len(mpd_r_fmaps)):
+            mpd_loss = mpd_loss + torch.mean(torch.abs(mpd_r_fmaps[i] - mpd_g_fmaps[i]))
 
         msd_loss = 0.0
-        N, M = len(msd_r_fmaps), len(msd_r_fmaps[0])
-        for i in range(N):
-            for j in range(M):
-                msd_loss = msd_loss + torch.mean(
-                    torch.abs(msd_r_fmaps[i][j] - msd_g_fmaps[i][j])
-                )
+        for i in range(len(msd_r_fmaps)):
+            msd_loss = msd_loss + torch.mean(torch.abs(msd_r_fmaps[i] - msd_g_fmaps[i]))
+        print("fm_mpd_loss:", mpd_loss)
+        print("fm_msd_loss:", msd_loss)
 
         return mpd_loss + msd_loss
 
     def _calc_mel_loss(self, real_spec, gen_audio):
+        gen_audio = gen_audio.squeeze(1)
         gen_spec = self.mel_spec(gen_audio)
         real_spec, gen_spec = self._pad_to_equal(real_spec, gen_spec)
 
@@ -74,8 +77,10 @@ class GeneratorLoss(nn.Module):
     def _pad_to_equal(self, real_spec: torch.Tensor, gen_spec: torch.Tensor):
         diff = abs(real_spec.shape[-1] - gen_spec.shape[-1])
         if real_spec.shape[-1] < gen_spec.shape[-1]:
-            real_spec = F.pad(real_spec, (0, diff, 0, 0), mode="reflect")
+            real_spec = F.pad(
+                real_spec, (0, diff), value=self.mel_spec.config.pad_value
+            )
         else:
-            gen_spec = F.pad(gen_spec, (0, diff, 0, 0), mode="reflect")
+            gen_spec = F.pad(gen_spec, (0, diff), value=self.mel_spec.config.pad_value)
 
         return real_spec, gen_spec

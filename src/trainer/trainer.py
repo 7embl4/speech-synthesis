@@ -55,6 +55,7 @@ class Trainer(BaseTrainer):
 
             # 2nd discriminator forward without detach
             # to update generator weights
+            self.g_optimizer.zero_grad()
             d_outputs = self.model.discriminate(
                 audio=batch["audio"], gen_audio=batch["gen_audio"]
             )
@@ -63,7 +64,6 @@ class Trainer(BaseTrainer):
             # calc generator loss and update it's weights;
             # discriminator grads updated as well,
             # but we don't care, since it will be zeroed in next batch
-            self.g_optimizer.zero_grad()
             g_loss = self.g_criterion(**batch)
             batch.update(g_loss)
             batch["g_loss"].backward()
@@ -80,6 +80,7 @@ class Trainer(BaseTrainer):
         for loss_name in self.config.writer.loss_names:
             if self.is_train:
                 metrics.update(loss_name, batch[loss_name].item())
+                print(loss_name, batch[loss_name])
             else:
                 metrics.update(loss_name, 0)  # no loss on val
 

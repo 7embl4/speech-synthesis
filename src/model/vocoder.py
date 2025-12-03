@@ -2,7 +2,6 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from torch.nn.utils.parametrizations import spectral_norm, weight_norm
-from torch.nn.utils.rnn import pad_sequence
 
 
 class ResBlock(nn.Module):
@@ -32,9 +31,10 @@ class ResBlock(nn.Module):
                 )
 
     def forward(self, x: torch.Tensor):
+        out = 0.0
         for layer in self.layers:
-            x = x + layer(x)
-        return x
+            out = out + layer(x)
+        return out
 
 
 class MRF(nn.Module):
@@ -94,51 +94,46 @@ class Generator(nn.Module):
         super().__init__()
 
         self.init_conv = weight_norm(
-            nn.Conv1d(in_channels=in_channels, out_channels=hid_channels, kernel_size=7)
+            nn.Conv1d(in_channels, hid_channels, kernel_size=7, padding=3)
         )
 
         self.layers = nn.ModuleList([])
-        in_ch = hid_channels
         num_layers = len(kernels)
         for i in range(num_layers):
-            out_ch = in_ch // 2
             self.layers.append(
                 nn.Sequential(
                     weight_norm(
                         nn.ConvTranspose1d(
-                            in_channels=in_ch,
-                            out_channels=out_ch,
+                            in_channels=hid_channels,
+                            out_channels=hid_channels // 2,
                             kernel_size=kernels[i],
                             stride=kernels[i] // 2,
+                            padding=(kernels[i] - kernels[i] // 2) // 2,
                         )
                     ),
-                    MRF(mrf_kernels, mrf_dilations, out_ch, relu_slope),
+                    MRF(mrf_kernels, mrf_dilations, hid_channels // 2, relu_slope),
                 )
             )
-            in_ch = in_ch // 2
+            hid_channels = hid_channels // 2
 
         self.final_conv = nn.Sequential(
             nn.LeakyReLU(relu_slope),
-            weight_norm(nn.Conv1d(in_channels=in_ch, out_channels=1, kernel_size=7)),
+            weight_norm(nn.Conv1d(hid_channels, 1, kernel_size=7, padding=3)),
             nn.Tanh(),
         )
 
     def forward(self, x: torch.Tensor):
-        # gate
         x = self.init_conv(x)
 
-        # main layers
         for layer in self.layers:
             x = layer(x)
 
-        # gate to audio
         x = self.final_conv(x)
-
         return {"gen_audio": x}
 
 
 class PeriodDiscr(nn.Module):
-    def __init__(self, in_channels=1, period=3, num_layers=4, relu_slope=0.1):
+    def __init__(self, in_channels=1, period=3, num_layers=5, relu_slope=0.1):
         super().__init__()
         self.period = period
 
@@ -154,7 +149,7 @@ class PeriodDiscr(nn.Module):
                             out_channels=out_ch,
                             kernel_size=(5, 1),
                             stride=(3, 1),
-                            # TODO: add padding
+                            padding=((5 - 3 // 2) // 2, 0),
                         )
                     ),
                     nn.LeakyReLU(relu_slope),
@@ -164,20 +159,9 @@ class PeriodDiscr(nn.Module):
 
         self.final_gates = nn.ModuleList(
             [
-                nn.Sequential(
-                    weight_norm(
-                        nn.Conv2d(
-                            in_channels=in_ch,
-                            out_channels=1024,
-                            kernel_size=(5, 1),
-                            padding="same",
-                        )
-                    ),
-                    nn.LeakyReLU(relu_slope),
-                ),
                 weight_norm(
                     nn.Conv2d(
-                        in_channels=1024,
+                        in_channels=in_ch,
                         out_channels=1,
                         kernel_size=(3, 1),
                         padding="same",
@@ -216,7 +200,7 @@ class MPD(nn.Module):
     """
 
     def __init__(
-        self, in_channels=1, periods=[2, 3, 5, 7, 11], num_layers=4, relu_slope=0.1
+        self, in_channels=1, periods=[2, 3, 5, 7, 11], num_layers=5, relu_slope=0.1
     ):
         super().__init__()
         self.discrs = nn.ModuleList([])
@@ -230,8 +214,8 @@ class MPD(nn.Module):
             g, g_fmap = discr(gen_audio)
             rs.append(r)
             gs.append(g)
-            r_fmaps.append(r_fmap)
-            g_fmaps.append(g_fmap)
+            r_fmaps.extend(r_fmap)
+            g_fmaps.extend(g_fmap)
 
         return rs, gs, r_fmaps, g_fmaps
 
@@ -350,8 +334,8 @@ class MSD(nn.Module):
             g, g_fmap = discr(gen_audio)
             rs.append(r)
             gs.append(g)
-            r_fmaps.append(r_fmap)
-            g_fmaps.append(g_fmap)
+            r_fmaps.extend(r_fmap)
+            g_fmaps.extend(g_fmap)
 
         return rs, gs, r_fmaps, g_fmaps
 
@@ -365,12 +349,12 @@ class Discriminator(nn.Module):
         self,
         # mpd
         mpd_periods=[2, 3, 5, 7, 11],
-        mpd_num_layers=4,
+        mpd_num_layers=5,
         # msd
         msd_hid_channels=128,
         msd_kernel_size=41,
-        msd_groups=16,
-        msd_strides=[2, 4, 4],
+        msd_n_layers=4,
+        msd_stride=4,
         msd_pools=[1, 2, 4],
         # common
         audio_channels=1,
@@ -382,8 +366,8 @@ class Discriminator(nn.Module):
             audio_channels,
             msd_hid_channels,
             msd_kernel_size,
-            msd_groups,
-            msd_strides,
+            msd_n_layers,
+            msd_stride,
             msd_pools,
             relu_slope,
         )
@@ -409,9 +393,9 @@ class Discriminator(nn.Module):
         diff = abs(real_audio.shape[-1] - gen_audio.shape[-1])
 
         if real_audio.shape[-1] < gen_audio.shape[-1]:
-            real_audio = F.pad(real_audio, (0, diff), mode="reflect")
+            real_audio = F.pad(real_audio, (0, diff))
         else:
-            gen_audio = F.pad(gen_audio, (0, diff), mode="reflect")
+            gen_audio = F.pad(gen_audio, (0, diff))
 
         return real_audio, gen_audio
 
@@ -431,8 +415,8 @@ class HiFiGAN(nn.Module):
         mrf_dilations=[[[1, 1], [3, 1], [5, 1]]] * 3,
         # discriminator
         mpd_periods=[2, 3, 5, 7, 11],
-        mpd_num_layers=4,
-        msd_hid_channels=128,
+        mpd_num_layers=5,
+        msd_hid_channels=16,
         msd_kernel_size=41,
         msd_n_layers=4,
         msd_stride=4,
