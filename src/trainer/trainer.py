@@ -69,17 +69,13 @@ class Trainer(BaseTrainer):
             batch["g_loss"].backward()
             self.g_optimizer.step()
 
-            # clip norm and decay lr
             self._clip_grad_norm()
-            if self.g_lr_scheduler is not None:
-                self.g_lr_scheduler.step()
-            if self.d_lr_scheduler is not None:
-                self.d_lr_scheduler.step()
 
         # update metrics for each loss (in case of multiple losses)
         for loss_name in self.config.writer.loss_names:
             if self.is_train:
                 metrics.update(loss_name, batch[loss_name].item())
+                print(loss_name, batch[loss_name])
 
         for met in metric_funcs:
             metrics.update(met.name, met(**batch))

@@ -30,7 +30,7 @@ d_loss_function:
   _target_: src.loss.DiscriminatorLoss
 
 trainer:
-  log_step: 50
+  log_step: 10
   n_epochs: 2000
   epoch_len: 500
   device_tensors: ["spec", "audio"] # which tensors should be on device (ex. GPU)

@@ -14,27 +14,30 @@ class ResBlock(nn.Module):
         M, L = len(dilations), len(dilations[0])
         self.layers = nn.ModuleList([])
         for m in range(M):
+            layer = []
             for l in range(L):  # noqa
-                self.layers.append(
-                    nn.Sequential(
+                layer.extend(
+                    [
                         nn.LeakyReLU(relu_slope),
-                        weight_norm(
-                            nn.Conv1d(
-                                in_channels=hid_channels,
-                                out_channels=hid_channels,
-                                kernel_size=kernel_size,
-                                dilation=dilations[m][l],
-                                padding="same",
-                            )
+                        nn.Conv1d(
+                            in_channels=hid_channels,
+                            out_channels=hid_channels,
+                            kernel_size=kernel_size,
+                            dilation=dilations[m][l],
+                            padding="same",
                         ),
-                    )
+                    ]
                 )
+            self.layers.append(nn.Sequential(*layer))
 
     def forward(self, x: torch.Tensor):
-        out = 0.0
+        # out = 0.0
+        # for layer in self.layers:
+        #     out = out + layer(x)
+        # return out
         for layer in self.layers:
-            out = out + layer(x)
-        return out
+            x = x + layer(x)
+        return x
 
 
 class MRF(nn.Module):
@@ -93,23 +96,19 @@ class Generator(nn.Module):
         """
         super().__init__()
 
-        self.init_conv = weight_norm(
-            nn.Conv1d(in_channels, hid_channels, kernel_size=7, padding=3)
-        )
+        self.init_conv = nn.Conv1d(in_channels, hid_channels, kernel_size=7, padding=3)
 
         self.layers = nn.ModuleList([])
         num_layers = len(kernels)
         for i in range(num_layers):
             self.layers.append(
                 nn.Sequential(
-                    weight_norm(
-                        nn.ConvTranspose1d(
-                            in_channels=hid_channels,
-                            out_channels=hid_channels // 2,
-                            kernel_size=kernels[i],
-                            stride=kernels[i] // 2,
-                            padding=(kernels[i] - kernels[i] // 2) // 2,
-                        )
+                    nn.ConvTranspose1d(
+                        in_channels=hid_channels,
+                        out_channels=hid_channels // 2,
+                        kernel_size=kernels[i],
+                        stride=kernels[i] // 2,
+                        padding=(kernels[i] - kernels[i] // 2) // 2,
                     ),
                     MRF(mrf_kernels, mrf_dilations, hid_channels // 2, relu_slope),
                 )
@@ -118,7 +117,7 @@ class Generator(nn.Module):
 
         self.final_conv = nn.Sequential(
             nn.LeakyReLU(relu_slope),
-            weight_norm(nn.Conv1d(hid_channels, 1, kernel_size=7, padding=3)),
+            nn.Conv1d(hid_channels, 1, kernel_size=7, padding=3),
             nn.Tanh(),
         )
 
@@ -196,7 +195,7 @@ class PeriodDiscr(nn.Module):
 
 class MPD(nn.Module):
     """
-    Multi-Scale Discriminator for HiFi-GAN
+    Multi-Period Discriminator for HiFi-GAN
     """
 
     def __init__(
@@ -252,19 +251,19 @@ class SubDiscr(nn.Module):
                     norm(
                         nn.Conv1d(
                             hid_channels,
-                            hid_channels * (1 if i + 1 == n_layers else 4),
+                            hid_channels * (1 if i + 1 == n_layers else 2),
                             kernel_size,
                             stride=stride,
-                            groups=hid_channels // 4,
+                            groups=hid_channels // 2,
                             padding=kernel_size // 2,
                         )
                     ),
                     nn.LeakyReLU(relu_slope),
                 )
             )
-            hid_channels = hid_channels * 4
+            hid_channels = hid_channels * 2
 
-        hid_channels = hid_channels // 4
+        hid_channels = hid_channels // 2
         self.final_gates = nn.ModuleList(
             [
                 nn.Sequential(
@@ -297,7 +296,7 @@ class SubDiscr(nn.Module):
 
 class MSD(nn.Module):
     """
-    Multi-Period Discriminator for HiFi-GAN
+    Multi-Scale Discriminator for HiFi-GAN
     """
 
     def __init__(
