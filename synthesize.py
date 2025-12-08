@@ -28,7 +28,7 @@ def parse_args():
     return args
 
 
-def load_vocoder(model_path="models/hifigan_best.ckpt"):
+def load_vocoder(model_path="models/hifigan.pth"):
     model = HiFiGAN()
 
     checkpoint = torch.load(model_path, map_location=device)
