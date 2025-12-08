@@ -23,6 +23,9 @@ conda create -n tts python=3.12
 pip install -r requirements.txt
 ```
 
+## Demo
+You can see demo [here](https://colab.research.google.com/drive/1oFnIV6KqEC3vzxHK2jteZ5nWr1IU4TBj?usp=sharing).
+
 ## Pretrained Model
 The result model is on [HuggingFace](...) you may download it using:
 ```bash
