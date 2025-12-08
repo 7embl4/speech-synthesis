@@ -4,7 +4,8 @@
   <a href="#about">About</a> •
   <a href="#installation">Installation</a> •
   <a href="#pretrained-model">Pretrained Model</a> •
-  <a href="#how-to-use">How To Use</a> •
+  <a href="#training">Training</a> •
+  <a href="#synthesis">Synthesis</a> •
   <a href="#credits">Credits</a> •
   <a href="#license">License</a>
 </p>
