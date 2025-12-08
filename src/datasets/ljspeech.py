@@ -1,6 +1,7 @@
 import os
 import random
 import tarfile
+from pathlib import Path
 
 import pandas as pd
 import torchaudio
@@ -82,7 +83,7 @@ class LJSpeechDataset(BaseDataset):
         if self.data_dir.exists():
             return
 
-        os.makedirs(str(self.data_dir))
+        os.makedirs(str(self.data_dir), exist_ok=True)
         with (ROOT_PATH / ".env").open() as env_file:
             env_vars = {
                 line.split("=")[0]: line.split("=")[1] for line in env_file.readlines()
@@ -97,11 +98,15 @@ class LJSpeechDataset(BaseDataset):
 
         print("Downloading dataset...")
         filename = wget.download(download_url, out=str(self.data_dir.parent))
-        print(f"Downloaded to {str(self.data_dir / filename)}")
+        print(f"Downloaded to {filename}")
 
         print("Extracting data...")
         with tarfile.open(filename, "r:bz2") as tar:
-            tar.extractall(path=str(self.data_dir))
+            tar.extractall(path=str(self.data_dir.parent))
+        os.rename(filename.replace(".tar.bz2", ""), self.data_dir)
+        print(f"Data extracted to {self.data_dir}")
+
+        os.remove(filename)
 
     def _create_index(self):
         """
