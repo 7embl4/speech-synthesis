@@ -96,9 +96,9 @@ def from_cli(args):
 if __name__ == "__main__":
     args = parse_args()
     if args.text_dir:
-        from_cli(args)
-    elif args.text:
         from_dir(args)
+    elif args.text:
+        from_cli(args)
     else:
         raise ValueError(
             "Provide either text using --text or text directory using --text_dir"
