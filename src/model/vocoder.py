@@ -31,7 +31,7 @@ class ResBlock(nn.Module):
             self.layers.append(nn.Sequential(*layer))
 
     def forward(self, x: torch.Tensor):
-        out = 0.0
+        out = x.clone()
         for layer in self.layers:
             out = out + layer(x)
         return out

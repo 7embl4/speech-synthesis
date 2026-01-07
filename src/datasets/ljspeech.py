@@ -12,6 +12,8 @@ from tqdm import tqdm
 from src.datasets.base_dataset import BaseDataset
 from src.utils.io_utils import ROOT_PATH, read_json, write_json
 
+LJSPEECH_DOWNLOAD_URL = "https://data.keithito.com/data/speech/LJSpeech-1.1.tar.bz2"
+
 
 class LJSpeechDataset(BaseDataset):
     """
@@ -24,7 +26,7 @@ class LJSpeechDataset(BaseDataset):
         part,
         val_size=150,
         target_sr=22050,
-        max_chunk_size=32768,
+        max_chunk_size=8192,
         *args,
         **kwargs,
     ):
@@ -80,24 +82,12 @@ class LJSpeechDataset(BaseDataset):
         """
         Load dataset from https://keithito.com/LJ-Speech-Dataset/
         """
-        if self.data_dir.exists():
+        if self.data_dir.exists() and any(self.data_dir.iterdir()):
             return
-
         os.makedirs(str(self.data_dir), exist_ok=True)
-        with (ROOT_PATH / ".env").open() as env_file:
-            env_vars = {
-                line.split("=")[0]: line.split("=")[1] for line in env_file.readlines()
-            }
-
-        if "LJSPEECH_DATASET_URL" in env_vars:
-            download_url = env_vars["LJSPEECH_DATASET_URL"]
-        else:
-            raise ValueError(
-                "Provide link in .env file with name: 'LJSPEECH_DATASET_URL'"
-            )
 
         print("Downloading dataset...")
-        filename = wget.download(download_url, out=str(self.data_dir.parent))
+        filename = wget.download(LJSPEECH_DOWNLOAD_URL, out=str(self.data_dir.parent))
         print(f"Downloaded to {filename}")
 
         print("Extracting data...")
@@ -145,10 +135,11 @@ class LJSpeechDataset(BaseDataset):
             audio = F.resample(audio, sr, self.target_sr)
 
         # get random chunk of audio
-        audio_len = audio.shape[-1]
-        if audio_len > self.max_chunk_size:
-            start_ind = random.randint(0, audio_len - self.max_chunk_size)
-            audio = audio[:, start_ind : start_ind + self.max_chunk_size]
+        if self.part == "train":
+            audio_len = audio.shape[-1]
+            if audio_len > self.max_chunk_size:
+                start_ind = random.randint(0, audio_len - self.max_chunk_size)
+                audio = audio[:, start_ind : start_ind + self.max_chunk_size]
 
         instance_data = {
             "filename": metadata["filename"],

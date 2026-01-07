@@ -26,12 +26,14 @@ def collate_fn(dataset_items: list[dict]):
 
     # pad tensors
     for key, list in result_batch.items():
-        if isinstance(list[0], torch.Tensor):
+        if key in ["audio", "spec"]:
             max_len = max([l.shape[-1] for l in list])  # noqa
             new_list = []
             for tensor in list:
-                diff = max_len - tensor.shape[-1]
-                new_list.append(F.pad(tensor, pad=(0, diff), value=0))
+                padded = tensor.clone()
+                while padded.shape[-1] < max_len:
+                    padded = torch.cat((padded, tensor), dim=-1)
+                new_list.append(padded[:, :max_len])
 
             result_batch[key] = torch.stack(new_list)
 
