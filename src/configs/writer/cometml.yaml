@@ -3,6 +3,6 @@ project_name: "speech-synthesis"
 workspace: null
 run_name: "testing"
 mode: "online"
-loss_names: ["g_loss", "d_loss", "g_adv_loss", "g_fm_loss", "g_mel_loss"] # which losses to log (useful for multi-loss tasks, s.a. GANs)
-log_checkpoints: False # set to True if you want to log save_dir with checkpoints to W&B
-id_length: 32 # length of the run_id
+loss_names: ["g_loss", "d_loss", "g_adv_loss", "g_fm_loss", "g_mel_loss"]
+log_checkpoints: False
+id_length: 32

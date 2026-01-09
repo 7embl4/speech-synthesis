@@ -68,13 +68,12 @@ class Trainer(BaseTrainer):
 
             self._clip_grad_norm()
 
-        # update metrics for each loss (in case of multiple losses)
+        # update losses and metrics
         for loss_name in self.config.writer.loss_names:
-            if self.is_train:
-                metrics.update(loss_name, batch[loss_name].item())
-
+            metrics.update(loss_name, batch[loss_name].item())
         for met in metric_funcs:
             metrics.update(met.name, met(**batch))
+
         return batch
 
     def _log_audio(
