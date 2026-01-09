@@ -21,9 +21,6 @@ class Trainer(BaseTrainer):
             batch (dict): dict-based batch containing the data from
                 the dataloader (possibly transformed via batch transform),
                 model outputs, and losses.
-
-        Eto moi commenty (net, Boris, ya ne generil ih neironkoi 😤),
-            ya ih pisal shtoby samomu ponyatno bylo che delau
         """
         batch = self.move_batch_to_device(batch)
         batch = self.transform_batch(batch)  # transform batch on device -- faster

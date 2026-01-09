@@ -31,10 +31,9 @@ class ResBlock(nn.Module):
             self.layers.append(nn.Sequential(*layer))
 
     def forward(self, x: torch.Tensor):
-        out = x.clone()
         for layer in self.layers:
-            out = out + layer(x)
-        return out
+            x = x + layer(x)
+        return x
 
 
 class MRF(nn.Module):

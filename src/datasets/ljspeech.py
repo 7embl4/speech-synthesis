@@ -135,11 +135,13 @@ class LJSpeechDataset(BaseDataset):
             audio = F.resample(audio, sr, self.target_sr)
 
         # get random chunk of audio
-        if self.part == "train":
-            audio_len = audio.shape[-1]
-            if audio_len > self.max_chunk_size:
-                start_ind = random.randint(0, audio_len - self.max_chunk_size)
-                audio = audio[:, start_ind : start_ind + self.max_chunk_size]
+        max_chunk_size = (
+            self.max_chunk_size if self.part == "train" else self.max_chunk_size * 4
+        )
+        audio_len = audio.shape[-1]
+        if audio_len > max_chunk_size:
+            start_ind = random.randint(0, audio_len - max_chunk_size)
+            audio = audio[:, start_ind : start_ind + max_chunk_size]
 
         instance_data = {
             "filename": metadata["filename"],
