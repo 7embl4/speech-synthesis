@@ -411,14 +411,14 @@ class HiFiGAN(nn.Module):
         # discriminator
         mpd_periods=[2, 3, 5, 7, 11],
         mpd_num_layers=5,
-        msd_hid_channels=16,
+        msd_hid_channels=128,
         msd_kernel_size=41,
         msd_n_layers=4,
         msd_stride=4,
         msd_pools=[1, 2, 4],
         # common
         audio_channels=1,
-        relu_slope=0.1,
+        relu_slope=0.01,
     ):
         super().__init__()
         self.generator = Generator(

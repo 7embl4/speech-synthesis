@@ -1,4 +1,5 @@
 import torch
+import torchaudio
 from torch import nn
 
 from src.metrics.tracker import MetricTracker
@@ -23,7 +24,7 @@ class Trainer(BaseTrainer):
                 model outputs, and losses.
         """
         batch = self.move_batch_to_device(batch)
-        batch = self.transform_batch(batch)  # transform batch on device -- faster
+        # batch = self.transform_batch(batch)  # transform batch on device -- faster
 
         metric_funcs = self.metrics["inference"]
         if self.is_train:
@@ -33,15 +34,17 @@ class Trainer(BaseTrainer):
         g_outputs = self.model.generate(**batch)
         batch.update(g_outputs)
 
-        # 1st discriminator forward
-        # to get score of generated audio
-        d_outputs = self.model.discriminate(
-            audio=batch["audio"],
-            gen_audio=batch["gen_audio"].detach(),  # detach from generator comp graph
-        )
-        batch.update(d_outputs)
-
         if self.is_train:
+            # 1st discriminator forward
+            # to get score of generated audio
+            d_outputs = self.model.discriminate(
+                audio=batch["audio"],
+                gen_audio=batch[
+                    "gen_audio"
+                ].detach(),  # detach from generator comp graph
+            )
+            batch.update(d_outputs)
+
             # zeroing grads from previous batch
             # and update discriminator weights
             self.d_optimizer.zero_grad()
@@ -70,7 +73,8 @@ class Trainer(BaseTrainer):
 
         # update losses and metrics
         for loss_name in self.config.writer.loss_names:
-            metrics.update(loss_name, batch[loss_name].item())
+            if self.is_train:
+                metrics.update(loss_name, batch[loss_name].item())
         for met in metric_funcs:
             metrics.update(met.name, met(**batch))
 

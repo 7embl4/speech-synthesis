@@ -108,6 +108,7 @@ wandb/
 .cometml-runs/
 outputs/
 models/
+results/
 
 # editor, os cache directory
 .vscode/

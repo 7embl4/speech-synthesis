@@ -135,7 +135,7 @@ class BaseTrainer:
             writer=self.writer,
         )
         self.evaluation_metrics = MetricTracker(
-            # *self.config.writer.loss_names,
+            *self.config.writer.loss_names,
             *[m.name for m in self.metrics["inference"]],
             writer=self.writer,
         )
@@ -549,7 +549,7 @@ class BaseTrainer:
         """
         resume_path = str(resume_path)
         self.logger.info(f"Loading checkpoint: {resume_path} ...")
-        checkpoint = torch.load(resume_path, self.device)
+        checkpoint = torch.load(resume_path, self.device, weights_only=False)
         self.start_epoch = checkpoint["epoch"] + 1
         self.mnt_best = checkpoint["monitor_best"]
 
