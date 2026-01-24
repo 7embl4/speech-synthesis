@@ -30,17 +30,17 @@ You can see demo online in [colab](https://colab.research.google.com/drive/1oFnI
 Some of samples, generated with the model.
 
 <audio controls>
-  <source src="https://raw.githubusercontent.com/7embl4/speech-synthesis/main/samples/generated_1.wav" type="audio/mpeg">
+  <source src="https://github.com/7embl4/speech-synthesis/blob/main/samples/generated_1.wav" type="audio/mpeg">
   Your browser doesn't support this element.
 </audio>
 
 <audio controls>
-  <source src="https://raw.githubusercontent.com/7embl4/speech-synthesis/main/samples/generated_2.wav" type="audio/mpeg">
+  <source src="https://github.com/7embl4/speech-synthesis/blob/main/samples/generated_2.wav" type="audio/mpeg">
   Your browser doesn't support this element.
 </audio>
 
 <audio controls>
-  <source src="https://raw.githubusercontent.com/7embl4/speech-synthesis/main/samples/generated_3.wav" type="audio/mpeg">
+  <source src="https://github.com/7embl4/speech-synthesis/blob/main/samples/generated_3.wav" type="audio/mpeg">
   Your browser doesn't support this element.
 </audio>
 
