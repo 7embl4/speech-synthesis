@@ -24,34 +24,64 @@ pip install -r requirements.txt
 ```
 
 ## Demo
-You can see demo [here](https://colab.research.google.com/drive/1oFnIV6KqEC3vzxHK2jteZ5nWr1IU4TBj?usp=sharing).
+You can see demo online in [colab](https://colab.research.google.com/drive/1oFnIV6KqEC3vzxHK2jteZ5nWr1IU4TBj?usp=sharing) or [download](https://github.com/7embl4/speech-synthesis/blob/main/demo.ipynb) notebook.
+
+## Samples
+Some of samples, generated with the model.
+
+<audio controls>
+  <source src="https://raw.githubusercontent.com/7embl4/speech-synthesis/main/samples/generated_1.wav" type="audio/mpeg">
+  Your browser doesn't support this element.
+</audio>
+
+<audio controls>
+  <source src="https://raw.githubusercontent.com/7embl4/speech-synthesis/main/samples/generated_2.wav" type="audio/mpeg">
+  Your browser doesn't support this element.
+</audio>
+
+<audio controls>
+  <source src="https://raw.githubusercontent.com/7embl4/speech-synthesis/main/samples/generated_3.wav" type="audio/mpeg">
+  Your browser doesn't support this element.
+</audio>
 
 ## Pretrained Model
-The result model is on [HuggingFace](...) you may download it using:
+The result model is on [HuggingFace](https://huggingface.co/artem1085715/hifigan), you may download it using:
 ```bash
 huggingface-cli download artem1085715/hifigan --local-dir models
 ```
 
 ## Training
 
-To train a model, run the following command:
+To train a model with basic config, run the following command:
 
 ```bash
-python train.py -cn=CONFIG_NAME HYDRA_CONFIG_ARGUMENTS
+python train.py
 ```
 
-Where `CONFIG_NAME` is a config from `src/configs` and `HYDRA_CONFIG_ARGUMENTS` are optional arguments.
+You can check [train config](https://github.com/7embl4/speech-synthesis/blob/main/src/configs/hifigan.yaml) for parameters to adjust.
 
 ## Synthesis
 
-To synthesize audio from your dataset (if `text_dir` doesn't exist, it will download dataset from link in `.env` file;
+To synthesize audio from **your dataset** (if `text_dir` doesn't exist, it will download dataset from link in `.env` file;
 the variable name is `CUSTOM_DATASET_URL`):
 
 ```bash
-python synthesize.py --text_dir <PATH_TO_DIR_WITH_TEXTS>
+python synthesize.py --text_dir <PATH_TO_DATASET>
 ```
 
-Or you can generate it from command line:
+`Note`. Dataset **must be** in the following format:
+```bash
+NameOfTheDirectoryWithUtterances
+└── transcriptions
+    ├── UtteranceID1.txt
+    ├── UtteranceID2.txt
+    .
+    .
+    .
+    └── UtteranceIDn.txt
+```
+
+You can also generate audio **from command line**:
 
 ```bash
 python synthesize.py --text <YOUR_TEXT>
