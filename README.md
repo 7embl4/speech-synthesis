@@ -24,25 +24,7 @@ pip install -r requirements.txt
 ```
 
 ## Demo
-You can see demo online in [colab](https://colab.research.google.com/drive/1oFnIV6KqEC3vzxHK2jteZ5nWr1IU4TBj?usp=sharing) or [download](https://github.com/7embl4/speech-synthesis/blob/main/demo.ipynb) notebook.
-
-## Samples
-Some of samples, generated with the model.
-
-<audio controls>
-  <source src="https://cdn.jsdelivr.net/gh/7embl4/speech-synthesis/samples/generated_1.wav" type="audio/wav">
-  Your browser doesn't support this element.
-</audio>
-
-<audio controls>
-  <source src="https://cdn.jsdelivr.net/gh/7embl4/speech-synthesis/samples/generated_2.wav" type="audio/wav">
-  Your browser doesn't support this element.
-</audio>
-
-<audio controls>
-  <source src="https://cdn.jsdelivr.net/gh/7embl4/speech-synthesis/samples/generated_3.wav" type="audio/wav">
-  Your browser doesn't support this element.
-</audio>
+You can see demo online in [colab](https://colab.research.google.com/drive/1oFnIV6KqEC3vzxHK2jteZ5nWr1IU4TBj?usp=sharing) or [download](https://github.com/7embl4/speech-synthesis/blob/main/demo.ipynb) notebook. You may also listen to some samples [here](https://github.com/7embl4/speech-synthesis/blob/main/samples/samples.html).
 
 ## Pretrained Model
 The result model is on [HuggingFace](https://huggingface.co/artem1085715/hifigan), you may download it using:
